@@ -3,15 +3,32 @@
 import { useState, useRef } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export default function Home() {
-  const [image, setImage] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const fileRef = useRef(null);
+// 1. Mendefinisikan struktur data untuk hasil dari Gemini
+interface MaterialItem {
+  material: string;
+  persentase: number;
+  estimasi_harga: string;
+}
 
-  const handleImage = (e) => {
-    const file = e.target.files[0];
+interface AnalysisResult {
+  nama_objek: string;
+  komposisi: MaterialItem[];
+  catatan?: string;
+}
+
+export default function Home() {
+  // 2. Menambahkan tipe data pada state
+  const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  
+  // 3. Menambahkan tipe data pada useRef (elemen input HTML)
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // 4. Memperbaiki error utama kamu (tipe data event 'e')
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
     setImage(file);
     setPreview(URL.createObjectURL(file));
@@ -23,12 +40,18 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+      // Pastikan API Key tersedia
+      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!apiKey) throw new Error("API Key Gemini tidak ditemukan.");
+
+      const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      const toBase64 = (file) => new Promise((res) => {
+      // 5. Menambahkan tipe data 'File' dan return 'Promise<string>'
+      const toBase64 = (file: File): Promise<string> => new Promise((res) => {
         const r = new FileReader();
-        r.onload = () => res(r.result.split(",")[1]);
+        // Memastikan TypeScript tahu bahwa r.result adalah string
+        r.onload = () => res((r.result as string).split(",")[1]);
         r.readAsDataURL(file);
       });
 
@@ -50,11 +73,11 @@ export default function Home() {
 
       const text = res.response.text().replace(/```json|```/g, "").trim();
       setResult(JSON.parse(text));
-    } catch (err) {
-      alert("Error: " + err.message);
+    } catch (err: any) { // 6. Mendefinisikan 'err' sebagai 'any' (atau 'unknown')
+      alert("Error: " + (err.message || "Terjadi kesalahan"));
+    } finally {
+      setLoading(false); // Menggunakan finally agar loading pasti mati, baik sukses maupun error
     }
-
-    setLoading(false);
   };
 
   return (
@@ -63,7 +86,7 @@ export default function Home() {
 
       {/* Upload Area */}
       <div
-        onClick={() => fileRef.current.click()}
+        onClick={() => fileRef.current?.click()} // 7. Menambahkan '?.' untuk mencegah error jika current null
         className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 transition"
       >
         {preview ? (
